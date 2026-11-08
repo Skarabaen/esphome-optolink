@@ -119,16 +119,25 @@ bool Optolink::write_datapoint(IDatapoint *datapoint, DPValue dp_value) {
     char buffer[64];
     dp_value.getString(buffer, sizeof(buffer));
     ESP_LOGI(TAG, "sending value %s (%d bytes) to datapoint %s", buffer, datapoint->getLength(), datapoint->getName());
+
     if (VitoWiFi.writeDatapoint(*datapoint, dp_value)) {
       notify_send();
+
+      // Read back the written datapoint to publish the confirmed value.
+      if (!VitoWiFi.readDatapoint(*datapoint)) {
+        ESP_LOGW(TAG, "readback request rejected for datapoint %s", datapoint->getName());
+      }
     } else {
       ESP_LOGE(TAG, "write request rejected due to queue overload - queue size: %d", VitoWiFi.queueSize());
+
       for (auto *dp : IDatapoint::getCollection()) {
         ESP_LOGE(TAG, "queued dp: %s", dp->getName());
       }
+
       return false;
     }
   }
+
   return true;
 }
 
